@@ -1,0 +1,8 @@
+*.spec
+env/
+logs/
+certNumber.json
+pem/
+dist/
+build/
+__pycache__/
