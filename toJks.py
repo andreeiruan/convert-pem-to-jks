@@ -66,32 +66,34 @@ class BotPemToJks:
     for file in listFilesPem:
       if int(file[-5]) > biggerNumber:
         biggerNumber = int(file[-5])
-
+    if biggerNumber == 0:
+      return 0
     return biggerNumber
 
-  def pemToJks(self, lastNumberFilesPem):
+
+  def pemToJks(self, lastNumberFilesPem: int) -> bool:
     pem = chilkat.CkPem()
     password = ''
 
     success = pem.LoadPemFile(f'{self.tsPlusDir}/cert{lastNumberFilesPem}.pem', password)
     if success != True:     
       self.createLog(pem.lastErrorText())
-      sys.exit()
+      return False     
 
     success = pem.LoadPemFile(f'{self.tsPlusDir}/chain{lastNumberFilesPem}.pem', password)
     if success != True:     
       self.createLog(pem.lastErrorText())
-      sys.exit()
+      return False
 
     success = pem.LoadPemFile(f'{self.tsPlusDir}/fullchain{lastNumberFilesPem}.pem', password)
     if success != True:     
       self.createLog(pem.lastErrorText())
-      sys.exit()
+      return False     
 
     success = pem.LoadPemFile(f'{self.tsPlusDir}/privkey{lastNumberFilesPem}.pem', password)
     if success != True:     
-      self.createLog(pem.lastErrorText())
-      sys.exit()
+      self.createLog(pem.lastErrorText())  
+      return False    
 
     pemContent = ''
     pemContent += self.loadContentPem(f'cert{lastNumberFilesPem}') 
@@ -102,7 +104,7 @@ class BotPemToJks:
     success = pem.LoadPem(pemContent, password)
     if not success:
       self.createLog('error on load pem file')
-      return
+      return False
     
     alias = ''
 
@@ -110,7 +112,7 @@ class BotPemToJks:
     jks = pem.ToJks(alias, jksPassword)
     if pem.get_LastMethodSuccess() == False:    
       self.createLog(pem.lastErrorText())      
-      sys.exit()
+      return False
 
     if os.path.exists(f'{self.tsPlusDir}/cert.jks'):    
       datetimeRename = str(datetime.datetime.now()).replace(' ', '_').replace('-', '_').replace(':', '_')[0:19]
@@ -120,13 +122,14 @@ class BotPemToJks:
     success = jks.ToFile(jksPassword,f'{self.tsPlusDir}/cert.jks')
     if success != True:
       self.createLog(jks.lastErrorText())
-      sys.exit()
+      return False
 
     if success == True:
       self.deleteFilesPem(f'cert{lastNumberFilesPem}') 
       self.deleteFilesPem(f'chain{lastNumberFilesPem}') 
       self.deleteFilesPem(f'fullchain{lastNumberFilesPem}') 
       self.deleteFilesPem(f'privkey{lastNumberFilesPem}')
+      return True
 
   def deleteFilesPem(self, name):
     if os.path.exists(f'{self.tsPlusDir}/{name}.pem'):
@@ -147,21 +150,26 @@ class BotPemToJks:
     fileLog.close()
 
   def converter(self):
-    try:
-      certNumber = self.loadCertNumberJson()
-      biggerNumber = self.loadLastNumberFilesPem()
-      if biggerNumber > certNumber:
+    try:      
+      biggerNumber = self.loadLastNumberFilesPem()      
+      if biggerNumber != 0:        
         self.unlockChilkat()
-        self.pemToJks(biggerNumber)
-        self.updateCertNumber(biggerNumber)
+        success = self.pemToJks(biggerNumber)
+
+        if success == False:
+          self.createLog('Error unexpected')
+
+        if success == True:          
+          os.system('taskkill /f /im HTML5service.exe')      
+          os.system('cd C:\\Program Files (x86)\\TSplus\\Clients\\webserver & runwebserver.bat')      
     except:
       self.createLog('Error unexpected')
     else:
       self.createLog('Certificate successfully converted', 'info')
 
 if __name__ == '__main__':
-  # tsPlusDir = 'C:\\Users\\andre\\Desktop\\ssl-converter\\pem'
-  tsPlusDir = r'C:\Program Files (x86)\TSplus\Clients\webserver'
+  tsPlusDir = 'C:\\Users\\andre\\Desktop\\ssl-converter\\pem'
+  # tsPlusDir = r'C:\Program Files (x86)\TSplus\Clients\webserver'
   bot = BotPemToJks(tsPlusDir)
   if os.path.exists(tsPlusDir):
     bot.converter()
