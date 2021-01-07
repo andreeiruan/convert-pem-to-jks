@@ -70,7 +70,6 @@ class BotPemToJks:
       return 0
     return biggerNumber
 
-
   def pemToJks(self, lastNumberFilesPem: int) -> bool:
     pem = chilkat.CkPem()
     password = ''
@@ -99,7 +98,7 @@ class BotPemToJks:
     pemContent += self.loadContentPem(f'cert{lastNumberFilesPem}') 
     pemContent += self.loadContentPem(f'chain{lastNumberFilesPem}') 
     pemContent += self.loadContentPem(f'fullchain{lastNumberFilesPem}') 
-    pemContent += self.loadContentPem(f'privkey{lastNumberFilesPem}') 
+    pemContent += self.loadContentPem(f'privkey{lastNumberFilesPem}')
 
     success = pem.LoadPem(pemContent, password)
     if not success:
@@ -167,9 +166,14 @@ class BotPemToJks:
     else:
       self.createLog('Certificate successfully converted', 'info')
 
+
 if __name__ == '__main__':
-  tsPlusDir = 'C:\\Users\\andre\\Desktop\\ssl-converter\\pem'
-  # tsPlusDir = r'C:\Program Files (x86)\TSplus\Clients\webserver'
+  prod = True
+  if prod == True:
+    tsPlusDir = r'C:\Program Files (x86)\TSplus\Clients\webserver'
+  else: 
+    tsPlusDir = 'C:\\Users\\andre\\Desktop\\ssl-converter\\pem'
+
   bot = BotPemToJks(tsPlusDir)
   if os.path.exists(tsPlusDir):
     bot.converter()
