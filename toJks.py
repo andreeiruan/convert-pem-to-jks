@@ -1,30 +1,30 @@
+from time import sleep
+from chilkat import chilkat
+from datetime import datetime
 import sys
 import os
-from chilkat import chilkat
-import datetime
 import json
 
 
-class BotPemToJks:
-
-  def __init__(self, tsPlusDir, certBotDir):
-    self.tsPlusDir = tsPlusDir
-    self.certBotDir = certBotDir    
-
+class Logger:
+  def __init__(self):
+      self.path = 'c:\\toJks\\logs'
+      self.pathCertNumber = 'c:\\toJks\\certNumber.json'
+  
   def loadJsonLogs(self, dateLog):
-    if not os.path.exists('./logs'):
-      os.mkdir('./logs')
+    if not os.path.exists(self.path):      
+      os.mkdir(self.path)
     try:
-      with open(f'./logs/{dateLog}.json', 'r', encoding='utf-8') as jsonFile:
+      with open(f'{self.path}/{dateLog}.json', 'r', encoding='utf-8') as jsonFile:
         logs = json.load(jsonFile)
       jsonFile.close()
       return logs    
     except FileNotFoundError:
       return False
-
+    
   def createLog(self, message, typeLog = 'error'):
-    dateLog = str(datetime.datetime.now()).replace(' ', '_').replace(':', '_')[0:10]
-    timeLog = str(datetime.datetime.now())[11:19]
+    dateLog = str(datetime.now()).replace(' ', '_').replace(':', '_')[0:10]
+    timeLog = str(datetime.now())[11:19]
     log = { 'typeLog': typeLog, 'message': message, 'time': timeLog }  
     
     jsonLogs = self.loadJsonLogs(dateLog)
@@ -32,32 +32,53 @@ class BotPemToJks:
       jsonLogs = []
     jsonLogs.append(log)
 
-    with open(f'./logs/{dateLog}.json', 'w', encoding='utf-8') as fileLog:
+    with open(f'{self.path}/{dateLog}.json', 'w', encoding='utf-8') as fileLog:
       json.dump(jsonLogs, fileLog, indent=4, ensure_ascii=False)
     fileLog.close()
+  
+  def loadCertNumberJson(self):
+    try:
+      with open(self.pathCertNumber, 'r', encoding='utf-8') as jsonFile:
+        certNumber = json.load(jsonFile)
+      jsonFile.close()
+      return certNumber['lastNumberCert']    
+    except FileNotFoundError:
+      return 0
+
+  def updateCertNumber(self, number):
+    with open(self.pathCertNumber, 'w', encoding='utf-8') as fileLog:
+      json.dump({ 'lastNumberCert': number}, fileLog, indent=4, ensure_ascii=False)
+    fileLog.close()
+
+
+class PemToJks:
+
+  def __init__(self, logger: Logger):
+
+    self.logger = logger
 
   def unlockChilkat(self):
     glob = chilkat.CkGlobal()
     success = glob.UnlockBundle('NFCAPB.CBX122020_whLMmkri37j2')
     if success != True:
-        self.createLog(glob.lastErrorText())
+        self.logger.createLog(glob.lastErrorText())
         sys.exit()
 
     status = glob.get_UnlockStatus()  
     if status == 2:
-        self.createLog('Unlocked using purchased unlock code', 'info')
+        self.logger.createLog('Unlocked using purchased unlock code', 'info')
 
-  def loadContentPem(self, name):
+  def loadContentPem(self, certBotDir, name,):
     try:
-      with open(f'{self.certBotDir}/{name}.pem', 'r') as file:
+      with open(f'{certBotDir}/{name}.pem', 'r') as file:
         pemContent = file.read()      
     except FileNotFoundError:
-      self.createLog(f'pem file name {name} not found')      
+      self.logger.createLog(f'pem file name {name} not found')      
     else:
       return pemContent
   
-  def loadLastNumberFilesPem(self):
-    listFiles = os.listdir(self.certBotDir)
+  def loadLastNumberFilesPem(self, certBotDir):
+    listFiles = os.listdir(certBotDir)
     listFilesPem = []  
     biggerNumber = 0
 
@@ -72,39 +93,39 @@ class BotPemToJks:
       return 0
     return biggerNumber
 
-  def pemToJks(self, lastNumberFilesPem: int) -> bool:
+  def converter(self, lastNumberFilesPem: int, certBotDir, tsPlusDir) -> bool:
     pem = chilkat.CkPem()
     password = ''
 
-    success = pem.LoadPemFile(f'{self.certBotDir}/cert{lastNumberFilesPem}.pem', password)
+    success = pem.LoadPemFile(f'{certBotDir}/cert{lastNumberFilesPem}.pem', password)
     if success != True:     
-      self.createLog(pem.lastErrorText())
+      self.logger.createLog(pem.lastErrorText())
       sys.exit()      
 
-    success = pem.LoadPemFile(f'{self.certBotDir}/chain{lastNumberFilesPem}.pem', password)
+    success = pem.LoadPemFile(f'{certBotDir}/chain{lastNumberFilesPem}.pem', password)
     if success != True:     
-      self.createLog(pem.lastErrorText())
+      self.logger.createLog(pem.lastErrorText())
       sys.exit()
 
-    success = pem.LoadPemFile(f'{self.certBotDir}/fullchain{lastNumberFilesPem}.pem', password)
+    success = pem.LoadPemFile(f'{certBotDir}/fullchain{lastNumberFilesPem}.pem', password)
     if success != True:     
-      self.createLog(pem.lastErrorText())
+      self.logger.createLog(pem.lastErrorText())
       sys.exit()     
 
-    success = pem.LoadPemFile(f'{self.certBotDir}/privkey{lastNumberFilesPem}.pem', password)
+    success = pem.LoadPemFile(f'{certBotDir}/privkey{lastNumberFilesPem}.pem', password)
     if success != True:     
-      self.createLog(pem.lastErrorText())  
+      self.logger.createLog(pem.lastErrorText())  
       sys.exit()    
 
     pemContent = ''
-    pemContent += self.loadContentPem(f'cert{lastNumberFilesPem}') 
-    pemContent += self.loadContentPem(f'chain{lastNumberFilesPem}') 
-    pemContent += self.loadContentPem(f'fullchain{lastNumberFilesPem}') 
-    pemContent += self.loadContentPem(f'privkey{lastNumberFilesPem}')
+    pemContent += self.loadContentPem(certBotDir, f'cert{lastNumberFilesPem}') 
+    pemContent += self.loadContentPem(certBotDir, f'chain{lastNumberFilesPem}') 
+    pemContent += self.loadContentPem(certBotDir ,f'fullchain{lastNumberFilesPem}') 
+    pemContent += self.loadContentPem(certBotDir, f'privkey{lastNumberFilesPem}')
 
     success = pem.LoadPem(pemContent, password)
     if not success:
-      self.createLog('error on load pem file')
+      self.logger.createLog('error on load pem file')
       return False
     
     alias = ''
@@ -112,70 +133,74 @@ class BotPemToJks:
     jksPassword = 'secret'
     jks = pem.ToJks(alias, jksPassword)
     if pem.get_LastMethodSuccess() == False:    
-      self.createLog(pem.lastErrorText())      
+      self.logger.createLog(pem.lastErrorText())      
       sys.exit()
 
-    if os.path.exists(f'{self.tsPlusDir}/cert.jks'):    
-      datetimeRename = str(datetime.datetime.now()).replace(' ', '_').replace('-', '_').replace(':', '_')[0:19]
-      if not os.path.exists(f'{self.tsPlusDir}/cert_{datetimeRename}.jks.bak'):
-        os.rename(f'{self.tsPlusDir}/cert.jks', f'{self.tsPlusDir}/cert_{datetimeRename}.jks.bak')
+    if os.path.exists(f'{tsPlusDir}/cert.jks'):    
+      datetimeRename = str(datetime.now()).replace(' ', '_').replace('-', '_').replace(':', '_')[0:19]
+      if not os.path.exists(f'{tsPlusDir}/cert_{datetimeRename}.jks.bak'):
+        os.rename(f'{tsPlusDir}/cert.jks', f'{tsPlusDir}/cert_{datetimeRename}.jks.bak')
 
-    success = jks.ToFile(jksPassword,f'{self.tsPlusDir}/cert.jks')
+    success = jks.ToFile(jksPassword,f'{tsPlusDir}/cert.jks')
     if success != True:
-      self.createLog(jks.lastErrorText())
+      self.logger.createLog(jks.lastErrorText())
       sys.exit()
  
     return success
 
-  def deleteFilesPem(self, name):
-    if os.path.exists(f'{self.tsPlusDir}/{name}.pem'):
-      os.remove(f'{self.tsPlusDir}/{name}.pem')
 
-  def loadCertNumberJson(self):
-    try:
-      with open('./certNumber.json', 'r', encoding='utf-8') as jsonFile:
-        certNumber = json.load(jsonFile)
-      jsonFile.close()
-      return certNumber['lastNumberCert']    
-    except FileNotFoundError:
-      return 0
+class Main:
 
-  def updateCertNumber(self, number):
-    with open('./certNumber.json', 'w', encoding='utf-8') as fileLog:
-      json.dump({ 'lastNumberCert': number}, fileLog, indent=4, ensure_ascii=False)
-    fileLog.close()
+  def __init__(self, pemtoJks: PemToJks, logger: Logger):
+    self.pemtoJks = pemtoJks
+    self.logger = logger
+  
+  def getPasteServer(self, certBotDir: str) -> str:
+    if not os.path.exists(certBotDir):  
+      return 'no\\found\\paste\\server'
 
-  def converter(self):
-    try:      
-      biggerNumber = self.loadLastNumberFilesPem()  
-      lastCertNumber = self.loadCertNumberJson()   
-      if biggerNumber > lastCertNumber:        
-        self.unlockChilkat()
-        success = self.pemToJks(biggerNumber)
+    pastes = os.listdir(certBotDir)
+    for paste in pastes:
+      if 'corpnuvem' in paste:
+        return paste
 
-        if success != True:
-          self.createLog(f'Error unexpected on convert files pem to jks {sys.exc_info()[0]}')       
-        
-
-        if success == True:  
-          self.updateCertNumber(biggerNumber)        
-          self.createLog('Certificate successfully converted', 'info')
-          os.system('background.vbs')            
-
-    except Exception:
-      self.createLog(f'Error unexpected {Exception.args}')   
-
-
-def getPasteServer(certBotDir: str) -> str:
-  if not os.path.exists(certBotDir):  
     return 'no\\found\\paste\\server'
 
-  pastes = os.listdir(certBotDir)
-  for paste in pastes:
-    if 'corpnuvem' in paste:
-      return paste
+  def getDaysAgoMotification(self, path: str) -> int:
+    dateModification = os.path.getmtime(path)
+    dateModification = datetime.fromtimestamp(dateModification)
+    now = datetime.now()
+    delta = now - dateModification
+    return delta.days 
+      
+  def main(self, certBotDir, tsPlusDir):
+    try:
+      if os.path.exists(tsPlusDir) and os.path.exists(certBotDir):
+        certBotDir += f'\\{self.getPasteServer(certBotDir)}'
+        daysAgoModificationCert = self.getDaysAgoMotification(f'{tsPlusDir}\\cert.jks')           
+        if daysAgoModificationCert > 86:
+          os.system(r'cd c:\Program Files (X86)\bin')
+          os.system('certbot renew')
+          sleep(1)
+        
+        biggerNumber = self.pemtoJks.loadLastNumberFilesPem(certBotDir)
+        lastCertNumber = self.logger.loadCertNumberJson()   
+        if biggerNumber > lastCertNumber:        
+          self.pemtoJks.unlockChilkat()
+          success = self.pemtoJks.converter(biggerNumber, certBotDir, tsPlusDir)
 
-  return 'no\\found\\paste\\server'
+          if success != True:
+            self.logger.createLog(f'Error unexpected on convert files pem to jks {sys.exc_info()[0]}')            
+
+          if success == True:  
+            self.logger.updateCertNumber(biggerNumber)        
+            self.logger.createLog('Certificate successfully converted', 'info')    
+            os.system('taskkill /f /im HTML5service.exe')     
+            os.system('cd C:\\Program Files (x86)\\TSplus\\Clients\\webserver & start /b runwebserver.bat')    
+      else:
+        self.logger.createLog(f'Directory ts plus ({tsPlusDir}) not found or directory certbot ({certBotDir}) not found')
+    except Exception:
+      self.logger.createLog(f'Error unexpected {Exception}')   
 
 
 if __name__ == '__main__':
@@ -183,14 +208,11 @@ if __name__ == '__main__':
   if prod == True:
     tsPlusDir = r'C:\Program Files (x86)\TSplus\Clients\webserver'
     certBotDir = r'C:\Certbot\archive'
-    certBotDir += f'\\{getPasteServer(certBotDir)}'
   else: 
     tsPlusDir = 'C:\\Users\\andre\\Desktop\\ssl-converter\\tsplus'
     certBotDir = 'C:\\Users\\andre\\Desktop\\ssl-converter\\certBot'
-    certBotDir += f'\\{getPasteServer(certBotDir)}' 
 
-  bot = BotPemToJks(tsPlusDir, certBotDir)
-  if os.path.exists(tsPlusDir) and os.path.exists(certBotDir):
-    bot.converter()
-  else:
-    bot.createLog(f'Directory ts plus ({tsPlusDir}) or cert bot {(certBotDir)} not found')
+  logger = Logger()
+  pemToJks = PemToJks(logger)
+  main = Main(pemToJks, logger)
+  main.main(certBotDir, tsPlusDir)
