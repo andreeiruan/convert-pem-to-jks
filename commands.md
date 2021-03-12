@@ -6,8 +6,5 @@ source env/scripts/activate
 cd chilkat && python installChilkat.py && cd ../
 pip install -r requirements.txt
 
-# Build observer
-pyinstaller --onefile --noconsole index.py
-
 # Build script
 pyinstaller --onefile --noconsole toJks.py

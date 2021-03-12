@@ -155,37 +155,43 @@ class Main:
     self.pemtoJks = pemtoJks
     self.logger = logger
   
-  def getPasteServer(self, certBotDir: str) -> str:
+  def getPasteServer(self, certBotDir: str) -> str:    
     if not os.path.exists(certBotDir):  
-      return 'no\\found\\paste\\server'
-
+      self.logger.createLog(f'Nao foi encontrado o caminho do certBot: {certBotDir}')
+      return
     pastes = os.listdir(certBotDir)
     for paste in pastes:
       if 'corpnuvem' in paste:
         return paste
+    self.logger.createLog(f'Nao foi encontrado a pasta referente ao servidor dentro do certbot {certBotDir}')
+    return ''
 
-    return 'no\\found\\paste\\server'
-
-  def getDaysAgoMotification(self, path: str) -> int:
-    dateModification = os.path.getmtime(path)
-    dateModification = datetime.fromtimestamp(dateModification)
-    now = datetime.now()
-    delta = now - dateModification
-    return delta.days 
+  def getDaysAgoMotification(self, path: str) -> int:  
+    try:  
+      dateModification = os.path.getmtime(path)
+      dateModification = datetime.fromtimestamp(dateModification)
+      now = datetime.now()
+      delta = now - dateModification
+      return delta.days
+    except FileNotFoundError:
+      self.logger.createLog(f'O sistema não pode encontrar o arquivo especificado {path}')    
       
   def main(self, certBotDir, tsPlusDir):
-    try:
-      if os.path.exists(tsPlusDir) and os.path.exists(certBotDir):
-        certBotDir += f'\\{self.getPasteServer(certBotDir)}'
-        daysAgoModificationCert = self.getDaysAgoMotification(f'{tsPlusDir}\\cert.jks')           
-        if daysAgoModificationCert > 86:
+    try:      
+      if os.path.exists(tsPlusDir) and os.path.exists(certBotDir):        
+        daysAgoModificationCert = self.getDaysAgoMotification(f'{tsPlusDir}\\cert.jks')
+        if daysAgoModificationCert == None:
+          return          
+        if daysAgoModificationCert > 83:
+          # Gera novos arquivos .pem para att o certificado
           os.system(r'cd c:\Program Files (X86)\bin')
           os.system('certbot renew')
-          sleep(1)
+          sleep(2)
         
+        certBotDir += f'\\{self.getPasteServer(certBotDir)}'        
         biggerNumber = self.pemtoJks.loadLastNumberFilesPem(certBotDir)
         lastCertNumber = self.logger.loadCertNumberJson()   
-        if biggerNumber > lastCertNumber:        
+        if biggerNumber > lastCertNumber:    
           self.pemtoJks.unlockChilkat()
           success = self.pemtoJks.converter(biggerNumber, certBotDir, tsPlusDir)
 
@@ -195,12 +201,12 @@ class Main:
           if success == True:  
             self.logger.updateCertNumber(biggerNumber)        
             self.logger.createLog('Certificate successfully converted', 'info')    
-            os.system('taskkill /f /im HTML5service.exe')     
-            os.system('cd C:\\Program Files (x86)\\TSplus\\Clients\\webserver & start /b runwebserver.bat')    
+            # os.system('taskkill /f /im HTML5service.exe')     
+            # os.system('cd C:\\Program Files (x86)\\TSplus\\Clients\\webserver & start /b runwebserver.bat')    
       else:
         self.logger.createLog(f'Directory ts plus ({tsPlusDir}) not found or directory certbot ({certBotDir}) not found')
     except Exception:
-      self.logger.createLog(f'Error unexpected {Exception}')   
+      self.logger.createLog(f'Error unexpected')   
 
 
 if __name__ == '__main__':
